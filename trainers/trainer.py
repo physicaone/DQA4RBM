@@ -9,6 +9,8 @@ from utils.metrics import hamming_distance_with_symmetry
 from utils.graph_utils import load_or_create_graph
 from utils.data_utils import load_data
 from samplers.sampler import sample_negative_particles
+from utils.plot_utils import save_reconstruction_images
+
 
 def train(config):
     device = torch.device('cpu')
@@ -117,4 +119,10 @@ def train(config):
         pickle.dump(graph_info, f)
     with open(os.path.join(save_dir, 'errors.pkl'), 'wb') as f:
         pickle.dump([train_error_list, val_error_list, time_epoch], f)
-    print(f"✅ Best model saved to {save_dir}/final_model_graph.pkl")
+    save_reconstruction_images(
+        rbm,
+        train_loader,
+        n_visible=config['n_visible'],
+        save_path=os.path.join(save_dir, f"reconstruction_best.png"),
+        device=device
+    )

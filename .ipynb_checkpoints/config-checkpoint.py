@@ -1,7 +1,7 @@
 def get_config():
     # === 공통 설정 ===
     mode = 'pcd'  # 'pcd' 또는 'dwave' 중 택 1
-    dataset = 'MNIST'
+    dataset = 'kMNIST'
     n_visible = 784
     n_hidden = 1400
     epochs = 20

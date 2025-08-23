@@ -1,12 +1,12 @@
 def get_config():
     # === 공통 설정 ===
     mode = 'pcd'  # 'pcd' 또는 'dwave' 중 택 1
-    dataset = 'kMNIST'
+    dataset = 'MNIST'
     n_visible = 784
-    n_hidden = 1400
+    n_hidden = 1200
     epochs = 20
     batch_size = 50000
-    initial_lr = 0.01
+    initial_lr = 0.005
     beta_rescale = 1.0
     num_reads = 3000
 
@@ -19,7 +19,8 @@ def get_config():
         'batch_size': batch_size,
         'initial_lr': initial_lr,
         'save_dir': f'./results/{dataset}{n_hidden}',
-        'graph_path': f'./results/dwave_graph_{n_hidden}.pkl'
+        'graph_path': f'./results/dwave_graph_{n_hidden}.pkl',
+        'l2_weight_decay': 0
     }
 
     # === PCD 모드일 경우 ===
@@ -33,7 +34,7 @@ def get_config():
 
     # === D-Wave 모드일 경우 ===
     elif mode == 'dwave':
-        anneal_schedule = [(0.0, 0.0), (0.006, 1.0)]
+        anneal_schedule = [(0.0, 0.0), (0.005, 1.0)]
         base_config.update({
             'beta_rescale': beta_rescale,
             'anneal_schedule': anneal_schedule,

@@ -4,11 +4,11 @@ from torch.utils.data import DataLoader, random_split
 def load_data(dataset_name, n_visible):
     transform = transforms.Compose([transforms.ToTensor()])
     if dataset_name == 'MNIST':
-        dataset = datasets.MNIST('../DQA2/data', train=True, download=True, transform=transform)
+        dataset = datasets.MNIST('../DQA2/data', train=True, download=False, transform=transform)
     elif dataset_name == 'fMNIST':
-        dataset = datasets.FashionMNIST('../DQA2/data', train=True, download=True, transform=transform)
+        dataset = datasets.FashionMNIST('../DQA2/data', train=True, download=False, transform=transform)
     elif dataset_name == 'kMNIST':
-        dataset = datasets.KMNIST('../DQA2/data', train=True, download=True, transform=transform)
+        dataset = datasets.KMNIST('../DQA2/data', train=True, download=False, transform=transform)
     else:
         raise ValueError("Unsupported dataset")
 

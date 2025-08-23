@@ -25,14 +25,20 @@ def train(config):
         config['n_hidden'],
         token=config.get('token')
     )
-    mask_tensor = torch.tensor(graph_info['mask'], dtype=torch.float32)
+    mask_tensor = torch.tensor(graph_info['mask'], dtype=torch.float32).to(device)
 
     # --- Data ---
     train_loader, val_loader = load_data(config['dataset'], config['n_visible'])
 
     # --- Model ---
     rbm = RBM(config['n_visible'], config['n_hidden'], mask_tensor).to(device)
-    opt = torch.optim.SGD(rbm.parameters(), lr=config.get('initial_lr', 0.01))
+
+    # --- Optimizer: L2 only (weight decay) ---
+    opt = torch.optim.SGD(
+        rbm.parameters(),
+        lr=config.get('initial_lr', 0.01),
+        weight_decay=config.get('l2_weight_decay', 0.0)  # <= L2 strength (e.g., 1e-4)
+    )
 
     # --- Persistent chain (for PCD only) ---
     persistent_v = torch.sign(torch.randn(1, config['n_visible'])).to(device) if mode == 'pcd' else None
@@ -65,29 +71,33 @@ def train(config):
     # --- Training Loop ---
     for epoch in range(config['epochs']):
         start_time = time.time()
+
+        # (Optional) simple LR schedule hook
         for param_group in opt.param_groups:
             param_group['lr'] = config.get('initial_lr', 0.01)
 
         # One batch only (full-batch)
         for data, _ in train_loader:
             v_data = data.view(-1, config['n_visible']).to(device)
-            v_data = torch.sign(v_data * 2 - 1)
+            v_data = torch.sign(v_data * 2 - 1)   # in {−1, +1}
             h_data = rbm.sample_h(v_data)
             break
 
-        # Sampling (PCD or D-Wave)
+        # Negative sampling (PCD or D-Wave)
         v_model, h_model, persistent_v = sample_negative_particles(
             mode, rbm, config, mask_tensor, graph_info, persistent_v
         )
 
-        # Gradient update
-        pos_grad = v_data.T @ h_data / v_data.size(0)
-        neg_grad = v_model.T @ h_model / v_model.size(0)
-        rbm.W.grad = -(pos_grad - neg_grad) * mask_tensor.to(device)
+        # --- Contrastive divergence gradient (masked) ---
+        pos_grad = v_data.T @ h_data / v_data.size(0)     # (V,H)
+        neg_grad = v_model.T @ h_model / v_model.size(0)  # (V,H)
+        rbm.W.grad = -(pos_grad - neg_grad) * mask_tensor
+
+        # --- L2 is handled by optimizer's weight_decay automatically ---
         opt.step()
         opt.zero_grad()
 
-        # Evaluation
+        # --- Evaluation (train/val reconstruction error) ---
         h_sample = rbm.sample_h(v_data)
         v_recon = rbm.sample_v(h_sample)
         train_error = hamming_distance_with_symmetry(v_data, v_recon).mean().item()
@@ -112,17 +122,18 @@ def train(config):
             best_val_error = val_error
             best_model_state = rbm.state_dict()
 
-    # Save best model
+    # --- Save best model & logs ---
     rbm.load_state_dict(best_model_state)
     graph_info['model_state_dict'] = best_model_state
     with open(os.path.join(save_dir, 'final_model_graph.pkl'), 'wb') as f:
         pickle.dump(graph_info, f)
     with open(os.path.join(save_dir, 'errors.pkl'), 'wb') as f:
         pickle.dump([train_error_list, val_error_list, time_epoch], f)
+
     save_reconstruction_images(
         rbm,
         train_loader,
         n_visible=config['n_visible'],
-        save_path=os.path.join(save_dir, f"reconstruction_best.png"),
+        save_path=os.path.join(save_dir, "reconstruction_best.png"),
         device=device
     )
